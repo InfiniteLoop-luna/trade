@@ -34,7 +34,8 @@ class Config:
     def database_url(self):
         """Generate SQLAlchemy database URL"""
         encoded_password = quote_plus(self.DB_PASSWORD) if self.DB_PASSWORD else ''
-        return f"postgresql://{self.DB_USER}:{encoded_password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}"
+        # Add sslmode and prefer IPv4 for Supabase compatibility
+        return f"postgresql://{self.DB_USER}:{encoded_password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}&sslrootcert=system"
 
     def validate(self):
         """Validate required configuration"""

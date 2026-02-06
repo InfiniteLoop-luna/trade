@@ -19,10 +19,17 @@ class Database:
     def connect(self):
         """Initialize database connection"""
         try:
+            # Connection arguments for Supabase with SSL
+            connect_args = {
+                "sslmode": self.config.DB_SSLMODE,
+                "connect_timeout": 10
+            }
+
             self.engine = create_engine(
                 self.config.database_url,
                 poolclass=NullPool,
-                echo=False
+                echo=False,
+                connect_args=connect_args
             )
             self.SessionLocal = sessionmaker(
                 autocommit=False,
