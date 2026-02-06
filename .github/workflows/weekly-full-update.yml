@@ -33,6 +33,7 @@ jobs:
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_SSLMODE: require
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           python src/main.py --mode full --data-type all --start-date 20200101
 
