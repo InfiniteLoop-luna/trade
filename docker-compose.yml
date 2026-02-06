@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  etf-collector:
+    build: .
+    container_name: etf-collector
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    command: python src/main.py --mode incremental --data-type all
+    restart: unless-stopped
+
+  streamlit-app:
+    build: .
+    container_name: etf-dashboard
+    env_file:
+      - .env
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./logs:/app/logs
+    command: streamlit run app.py
+    restart: unless-stopped
