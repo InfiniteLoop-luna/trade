@@ -19,7 +19,7 @@ class Config:
     DB_NAME = os.getenv('DB_NAME', 'postgres')
     DB_USER = os.getenv('DB_USER', 'postgres')
     DB_PASSWORD = os.getenv('DB_PASSWORD')
-    DB_SSLMODE = os.getenv('DB_SSLMODE', 'require')
+    DB_SSLMODE = os.getenv('DB_SSLMODE', 'verify-full')
 
     # Logging Configuration
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
