@@ -34,8 +34,9 @@ class Config:
     def database_url(self):
         """Generate SQLAlchemy database URL"""
         encoded_password = quote_plus(self.DB_PASSWORD) if self.DB_PASSWORD else ''
-        # Add sslmode and prefer IPv4 for Supabase compatibility
-        return f"postgresql://{self.DB_USER}:{encoded_password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}&sslrootcert=system"
+        # Add sslmode and target_session_attrs for better connectivity in GitHub Actions
+        # target_session_attrs=read-write helps with connection reliability
+        return f"postgresql://{self.DB_USER}:{encoded_password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}&sslrootcert=system&target_session_attrs=read-write"
 
     def validate(self):
         """Validate required configuration"""
