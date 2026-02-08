@@ -34,29 +34,34 @@ class Database:
     def connect(self):
         """Initialize database connection"""
         try:
-            # Resolve hostname to IPv4 to avoid IPv6 connectivity issues in GitHub Actions
-            ipv4_host = self._resolve_ipv4(self.config.DB_HOST)
-
-            # Build database URL with resolved IPv4 address
+            # Build database URL with IPv4 resolution
             from urllib.parse import quote_plus
             encoded_password = quote_plus(self.config.DB_PASSWORD) if self.config.DB_PASSWORD else ''
 
             # Use connection pooler for CI environments (better IPv4 support)
-            port = 6543 if self.config.USE_POOLER else self.config.DB_PORT
-            host = ipv4_host
+            if self.config.USE_POOLER and self.config.DB_POOLER_HOST:
+                # Use provided pooler hostname with IPv4 resolution
+                pooler_host = self._resolve_ipv4(self.config.DB_POOLER_HOST)
 
-            # For pooler, modify hostname to use pooler endpoint
-            if self.config.USE_POOLER and 'supabase.co' in self.config.DB_HOST:
-                # Convert db.xxx.supabase.co to aws-0-xxx.pooler.supabase.com
-                parts = self.config.DB_HOST.split('.')
-                if len(parts) >= 3 and parts[0] == 'db':
-                    project_ref = parts[1]
-                    pooler_host = f"aws-0-{project_ref}.pooler.supabase.com"
-                    # Resolve pooler hostname to IPv4
-                    host = self._resolve_ipv4(pooler_host)
-                    logger.info(f"Using Supabase connection pooler: {pooler_host}")
+                # Extract project reference from DB_HOST for Supabase pooler username format
+                project_ref = None
+                if 'supabase.co' in self.config.DB_HOST:
+                    parts = self.config.DB_HOST.split('.')
+                    if len(parts) >= 3 and parts[0] == 'db':
+                        project_ref = parts[1]
 
-            database_url = f"postgresql://{self.config.DB_USER}:{encoded_password}@{host}:{port}/{self.config.DB_NAME}?sslmode={self.config.DB_SSLMODE}&sslrootcert=system"
+                # Format username as db-user.project-ref for Supabase pooler
+                username = f"{self.config.DB_USER}.{project_ref}" if project_ref else self.config.DB_USER
+                host = pooler_host
+                port = 6543
+                logger.info(f"Using Supabase connection pooler: {self.config.DB_POOLER_HOST}")
+            else:
+                # Use direct connection with IPv4 resolution
+                host = self._resolve_ipv4(self.config.DB_HOST)
+                username = self.config.DB_USER
+                port = self.config.DB_PORT
+
+            database_url = f"postgresql://{username}:{encoded_password}@{host}:{port}/{self.config.DB_NAME}?sslmode={self.config.DB_SSLMODE}&sslrootcert=system"
 
             # Connection arguments optimized for pooler mode
             if self.config.USE_POOLER:

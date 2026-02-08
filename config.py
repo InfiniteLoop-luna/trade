@@ -12,6 +12,8 @@ class Config:
 
     # Database Configuration
     DB_HOST = os.getenv('DB_HOST')
+    # Optional: Supabase connection pooler host (e.g., aws-0-us-east-1.pooler.supabase.com)
+    DB_POOLER_HOST = os.getenv('DB_POOLER_HOST')
     try:
         DB_PORT = int(os.getenv('DB_PORT', 5432))
     except (ValueError, TypeError):
@@ -39,20 +41,28 @@ class Config:
         encoded_password = quote_plus(self.DB_PASSWORD) if self.DB_PASSWORD else ''
 
         # Use connection pooler for CI environments (better IPv4 support)
-        # Supabase pooler uses port 6543 for transaction mode
-        port = 6543 if self.USE_POOLER else self.DB_PORT
-        host = self.DB_HOST
+        if self.USE_POOLER and self.DB_POOLER_HOST:
+            # Use provided pooler hostname
+            # Supabase pooler format: postgres://[db-user].[project-ref]:[password]@[pooler-host]:6543/postgres
+            # Extract project reference from DB_HOST (e.g., db.xxx.supabase.co -> xxx)
+            project_ref = None
+            if 'supabase.co' in self.DB_HOST:
+                parts = self.DB_HOST.split('.')
+                if len(parts) >= 3 and parts[0] == 'db':
+                    project_ref = parts[1]
 
-        # For pooler, modify hostname to use pooler endpoint
-        if self.USE_POOLER and 'supabase.co' in host:
-            # Convert db.xxx.supabase.co to aws-0-xxx.pooler.supabase.com
-            parts = host.split('.')
-            if len(parts) >= 3 and parts[0] == 'db':
-                project_ref = parts[1]
-                host = f"aws-0-{project_ref}.pooler.supabase.com"
+            # Format username as db-user.project-ref for Supabase pooler
+            username = f"{self.DB_USER}.{project_ref}" if project_ref else self.DB_USER
+            host = self.DB_POOLER_HOST
+            port = 6543
+        else:
+            # Use direct connection
+            username = self.DB_USER
+            host = self.DB_HOST
+            port = self.DB_PORT
 
         # Add sslmode and connection parameters for reliability
-        return f"postgresql://{self.DB_USER}:{encoded_password}@{host}:{port}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}&sslrootcert=system"
+        return f"postgresql://{username}:{encoded_password}@{host}:{port}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}&sslrootcert=system"
 
     def validate(self):
         """Validate required configuration"""
