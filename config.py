@@ -20,6 +20,9 @@ class Config:
     DB_USER = os.getenv('DB_USER', 'postgres')
     DB_PASSWORD = os.getenv('DB_PASSWORD')
     DB_SSLMODE = os.getenv('DB_SSLMODE', 'verify-full')
+    # Use connection pooler for better IPv4 support in CI environments
+    # Set to 'true' to use Supabase connection pooler (port 6543)
+    USE_POOLER = os.getenv('USE_POOLER', 'false').lower() == 'true'
 
     # Logging Configuration
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
@@ -34,9 +37,22 @@ class Config:
     def database_url(self):
         """Generate SQLAlchemy database URL"""
         encoded_password = quote_plus(self.DB_PASSWORD) if self.DB_PASSWORD else ''
-        # Add sslmode and target_session_attrs for better connectivity in GitHub Actions
-        # target_session_attrs=read-write helps with connection reliability
-        return f"postgresql://{self.DB_USER}:{encoded_password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}&sslrootcert=system&target_session_attrs=read-write"
+
+        # Use connection pooler for CI environments (better IPv4 support)
+        # Supabase pooler uses port 6543 for transaction mode
+        port = 6543 if self.USE_POOLER else self.DB_PORT
+        host = self.DB_HOST
+
+        # For pooler, modify hostname to use pooler endpoint
+        if self.USE_POOLER and 'supabase.co' in host:
+            # Convert db.xxx.supabase.co to aws-0-xxx.pooler.supabase.com
+            parts = host.split('.')
+            if len(parts) >= 3 and parts[0] == 'db':
+                project_ref = parts[1]
+                host = f"aws-0-{project_ref}.pooler.supabase.com"
+
+        # Add sslmode and connection parameters for reliability
+        return f"postgresql://{self.DB_USER}:{encoded_password}@{host}:{port}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}&sslrootcert=system"
 
     def validate(self):
         """Validate required configuration"""

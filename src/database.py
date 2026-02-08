@@ -40,18 +40,41 @@ class Database:
             # Build database URL with resolved IPv4 address
             from urllib.parse import quote_plus
             encoded_password = quote_plus(self.config.DB_PASSWORD) if self.config.DB_PASSWORD else ''
-            database_url = f"postgresql://{self.config.DB_USER}:{encoded_password}@{ipv4_host}:{self.config.DB_PORT}/{self.config.DB_NAME}?sslmode={self.config.DB_SSLMODE}&sslrootcert=system&target_session_attrs=read-write"
 
-            # Connection arguments for Supabase with SSL
-            # Add options to improve connectivity in GitHub Actions
-            connect_args = {
-                "sslmode": self.config.DB_SSLMODE,
-                "connect_timeout": 30,
-                "keepalives": 1,
-                "keepalives_idle": 30,
-                "keepalives_interval": 10,
-                "keepalives_count": 5
-            }
+            # Use connection pooler for CI environments (better IPv4 support)
+            port = 6543 if self.config.USE_POOLER else self.config.DB_PORT
+            host = ipv4_host
+
+            # For pooler, modify hostname to use pooler endpoint
+            if self.config.USE_POOLER and 'supabase.co' in self.config.DB_HOST:
+                # Convert db.xxx.supabase.co to aws-0-xxx.pooler.supabase.com
+                parts = self.config.DB_HOST.split('.')
+                if len(parts) >= 3 and parts[0] == 'db':
+                    project_ref = parts[1]
+                    pooler_host = f"aws-0-{project_ref}.pooler.supabase.com"
+                    # Resolve pooler hostname to IPv4
+                    host = self._resolve_ipv4(pooler_host)
+                    logger.info(f"Using Supabase connection pooler: {pooler_host}")
+
+            database_url = f"postgresql://{self.config.DB_USER}:{encoded_password}@{host}:{port}/{self.config.DB_NAME}?sslmode={self.config.DB_SSLMODE}&sslrootcert=system"
+
+            # Connection arguments optimized for pooler mode
+            if self.config.USE_POOLER:
+                # Pooler mode: shorter timeout, no keepalives (pooler handles it)
+                connect_args = {
+                    "sslmode": self.config.DB_SSLMODE,
+                    "connect_timeout": 15
+                }
+            else:
+                # Direct mode: longer timeout with keepalives
+                connect_args = {
+                    "sslmode": self.config.DB_SSLMODE,
+                    "connect_timeout": 30,
+                    "keepalives": 1,
+                    "keepalives_idle": 30,
+                    "keepalives_interval": 10,
+                    "keepalives_count": 5
+                }
 
             self.engine = create_engine(
                 database_url,
