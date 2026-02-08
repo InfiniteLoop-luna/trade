@@ -52,34 +52,36 @@ class Database:
 
                 # Format username as db-user.project-ref for Supabase pooler
                 username = f"{self.config.DB_USER}.{project_ref}" if project_ref else self.config.DB_USER
-                host = pooler_host
+                host = self.config.DB_POOLER_HOST  # Use hostname for SSL verification
                 port = 6543
-                logger.info(f"Using Supabase connection pooler: {self.config.DB_POOLER_HOST}")
-            else:
-                # Use direct connection with IPv4 resolution
-                host = self._resolve_ipv4(self.config.DB_HOST)
-                username = self.config.DB_USER
-                port = self.config.DB_PORT
 
-            database_url = f"postgresql://{username}:{encoded_password}@{host}:{port}/{self.config.DB_NAME}?sslmode={self.config.DB_SSLMODE}&sslrootcert=system"
-
-            # Connection arguments optimized for pooler mode
-            if self.config.USE_POOLER:
-                # Pooler mode: shorter timeout, no keepalives (pooler handles it)
+                # Use hostaddr for IPv4 connection while keeping hostname for SSL
                 connect_args = {
                     "sslmode": self.config.DB_SSLMODE,
-                    "connect_timeout": 15
+                    "connect_timeout": 15,
+                    "hostaddr": pooler_host  # Force IPv4 connection
                 }
+                logger.info(f"Using Supabase connection pooler: {self.config.DB_POOLER_HOST} (IPv4: {pooler_host})")
             else:
-                # Direct mode: longer timeout with keepalives
+                # Use direct connection with IPv4 resolution via hostaddr
+                ipv4_host = self._resolve_ipv4(self.config.DB_HOST)
+                username = self.config.DB_USER
+                host = self.config.DB_HOST  # Use hostname for SSL verification
+                port = self.config.DB_PORT
+
+                # Use hostaddr for IPv4 connection while keeping hostname for SSL
                 connect_args = {
                     "sslmode": self.config.DB_SSLMODE,
                     "connect_timeout": 30,
+                    "hostaddr": ipv4_host,  # Force IPv4 connection
                     "keepalives": 1,
                     "keepalives_idle": 30,
                     "keepalives_interval": 10,
                     "keepalives_count": 5
                 }
+                logger.info(f"Using direct connection: {self.config.DB_HOST} (IPv4: {ipv4_host})")
+
+            database_url = f"postgresql://{username}:{encoded_password}@{host}:{port}/{self.config.DB_NAME}?sslmode={self.config.DB_SSLMODE}&sslrootcert=system"
 
             self.engine = create_engine(
                 database_url,
