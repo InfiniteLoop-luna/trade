@@ -33,10 +33,16 @@ class ETFBasicCollector(BaseCollector):
                 # Delete existing records
                 session.query(ETFBasic).delete()
 
+                # Get valid column names from the model (excluding created_at and updated_at)
+                valid_columns = {c.name for c in ETFBasic.__table__.columns
+                                if c.name not in ('created_at', 'updated_at')}
+
                 # Insert new records
                 records = df.to_dict('records')
                 for record in records:
-                    etf = ETFBasic(**record)
+                    # Filter record to only include valid columns
+                    filtered_record = {k: v for k, v in record.items() if k in valid_columns}
+                    etf = ETFBasic(**filtered_record)
                     session.add(etf)
 
                 logger.info(f"Saved {len(records)} ETF basic records")

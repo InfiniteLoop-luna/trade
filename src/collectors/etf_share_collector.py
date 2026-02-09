@@ -56,9 +56,15 @@ class ETFShareCollector(BaseCollector):
 
                     # Save to database
                     with self.db.get_session() as session:
+                        # Get valid column names from the model (excluding id and created_at)
+                        valid_columns = {c.name for c in ETFShareSize.__table__.columns
+                                        if c.name not in ('id', 'created_at')}
+
                         records = df.to_dict('records')
                         for record in records:
-                            share = ETFShareSize(**record)
+                            # Filter record to only include valid columns
+                            filtered_record = {k: v for k, v in record.items() if k in valid_columns}
+                            share = ETFShareSize(**filtered_record)
                             session.merge(share)
 
                         total_records += len(records)
@@ -111,9 +117,15 @@ class ETFShareCollector(BaseCollector):
                     df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
 
                     with self.db.get_session() as session:
+                        # Get valid column names from the model (excluding id and created_at)
+                        valid_columns = {c.name for c in ETFShareSize.__table__.columns
+                                        if c.name not in ('id', 'created_at')}
+
                         records = df.to_dict('records')
                         for record in records:
-                            share = ETFShareSize(**record)
+                            # Filter record to only include valid columns
+                            filtered_record = {k: v for k, v in record.items() if k in valid_columns}
+                            share = ETFShareSize(**filtered_record)
                             session.merge(share)
 
                         total_records += len(records)
