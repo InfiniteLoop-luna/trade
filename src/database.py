@@ -18,7 +18,11 @@ class Database:
         self.SessionLocal = None
 
     def _resolve_ipv4(self, hostname):
-        """Resolve hostname to IPv4 address to avoid IPv6 issues in GitHub Actions"""
+        """Resolve hostname to IPv4 address to avoid IPv6 issues in GitHub Actions
+
+        Returns:
+            tuple: (ipv4_address, success) where success is True if resolution succeeded
+        """
         try:
             # Get all addresses for the hostname
             addr_info = socket.getaddrinfo(hostname, None, socket.AF_INET, socket.SOCK_STREAM)
@@ -26,10 +30,10 @@ class Database:
                 # Return the first IPv4 address
                 ipv4_addr = addr_info[0][4][0]
                 logger.info(f"Resolved {hostname} to IPv4: {ipv4_addr}")
-                return ipv4_addr
+                return ipv4_addr, True
         except socket.gaierror as e:
-            logger.warning(f"Failed to resolve {hostname} to IPv4: {e}, using hostname as-is")
-        return hostname
+            logger.warning(f"Failed to resolve {hostname} to IPv4: {e}, will use hostname without hostaddr")
+        return None, False
 
     def connect(self):
         """Initialize database connection"""
@@ -40,8 +44,8 @@ class Database:
 
             # Use connection pooler for CI environments (better IPv4 support)
             if self.config.USE_POOLER and self.config.DB_POOLER_HOST:
-                # Use provided pooler hostname with IPv4 resolution
-                pooler_host = self._resolve_ipv4(self.config.DB_POOLER_HOST)
+                # Try to resolve pooler hostname to IPv4
+                pooler_ipv4, resolved = self._resolve_ipv4(self.config.DB_POOLER_HOST)
 
                 # Extract project reference from DB_HOST for Supabase pooler username format
                 project_ref = None
@@ -55,31 +59,37 @@ class Database:
                 host = self.config.DB_POOLER_HOST  # Use hostname for SSL verification
                 port = 6543
 
-                # Use hostaddr for IPv4 connection while keeping hostname for SSL
+                # Only use hostaddr if IPv4 resolution succeeded
                 connect_args = {
                     "sslmode": self.config.DB_SSLMODE,
-                    "connect_timeout": 15,
-                    "hostaddr": pooler_host  # Force IPv4 connection
+                    "connect_timeout": 15
                 }
-                logger.info(f"Using Supabase connection pooler: {self.config.DB_POOLER_HOST} (IPv4: {pooler_host})")
+                if resolved:
+                    connect_args["hostaddr"] = pooler_ipv4  # Force IPv4 connection
+                    logger.info(f"Using Supabase connection pooler: {self.config.DB_POOLER_HOST} (IPv4: {pooler_ipv4})")
+                else:
+                    logger.info(f"Using Supabase connection pooler: {self.config.DB_POOLER_HOST} (no IPv4 resolution)")
             else:
-                # Use direct connection with IPv4 resolution via hostaddr
-                ipv4_host = self._resolve_ipv4(self.config.DB_HOST)
+                # Use direct connection - try IPv4 resolution
+                ipv4_addr, resolved = self._resolve_ipv4(self.config.DB_HOST)
                 username = self.config.DB_USER
                 host = self.config.DB_HOST  # Use hostname for SSL verification
                 port = self.config.DB_PORT
 
-                # Use hostaddr for IPv4 connection while keeping hostname for SSL
+                # Only use hostaddr if IPv4 resolution succeeded
                 connect_args = {
                     "sslmode": self.config.DB_SSLMODE,
                     "connect_timeout": 30,
-                    "hostaddr": ipv4_host,  # Force IPv4 connection
                     "keepalives": 1,
                     "keepalives_idle": 30,
                     "keepalives_interval": 10,
                     "keepalives_count": 5
                 }
-                logger.info(f"Using direct connection: {self.config.DB_HOST} (IPv4: {ipv4_host})")
+                if resolved:
+                    connect_args["hostaddr"] = ipv4_addr  # Force IPv4 connection
+                    logger.info(f"Using direct connection: {self.config.DB_HOST} (IPv4: {ipv4_addr})")
+                else:
+                    logger.info(f"Using direct connection: {self.config.DB_HOST} (no IPv4 resolution)")
 
             database_url = f"postgresql://{username}:{encoded_password}@{host}:{port}/{self.config.DB_NAME}?sslmode={self.config.DB_SSLMODE}&sslrootcert=system"
 
