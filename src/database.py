@@ -65,6 +65,8 @@ class Database:
                     "connect_timeout": 15
                 }
                 if resolved:
+                    # Use both host (for SSL verification) and hostaddr (for IPv4 connection)
+                    connect_args["host"] = self.config.DB_POOLER_HOST
                     connect_args["hostaddr"] = pooler_ipv4  # Force IPv4 connection
                     logger.info(f"Using Supabase connection pooler: {self.config.DB_POOLER_HOST} (IPv4: {pooler_ipv4})")
                 else:
@@ -86,6 +88,8 @@ class Database:
                     "keepalives_count": 5
                 }
                 if resolved:
+                    # Use both host (for SSL verification) and hostaddr (for IPv4 connection)
+                    connect_args["host"] = self.config.DB_HOST
                     connect_args["hostaddr"] = ipv4_addr  # Force IPv4 connection
                     logger.info(f"Using direct connection: {self.config.DB_HOST} (IPv4: {ipv4_addr})")
                 else:
