@@ -7,7 +7,11 @@
       "Bash(gh auth:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(network address\" error. The hostaddr parameter expects an IP address, not\na hostname.\n\nChanges:\n- Modified _resolve_ipv4\\(\\) to return \\(ip_address, success\\) tuple\n- Only add hostaddr to connect_args when IPv4 resolution succeeds\n- When resolution fails, fall back to standard connection without hostaddr\n- Updated log messages to indicate when IPv4 resolution is not used\n\nThis allows the connection to work in GitHub Actions even when DNS\nresolution fails, by letting psycopg2 handle hostname resolution normally.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "WebFetch(domain:supabase.com)",
+      "WebFetch(domain:stackoverflow.com)"
     ]
   }
 }

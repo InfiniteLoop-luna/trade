@@ -86,7 +86,25 @@ This means the direct connection is being used. Ensure:
 ### Error: "could not parse network address"
 This was an issue in older versions where the code passed a hostname to the `hostaddr` parameter. This has been fixed in the latest version.
 
+### Error: "SSL error: certificate verify failed"
+
+This occurs when using `sslmode=verify-full` without the Supabase CA certificate. For GitHub Actions, use `sslmode=require` instead, which encrypts the connection but doesn't verify the certificate (acceptable for CI/CD environments).
+
+## SSL Configuration
+
+GitHub Actions workflows use `sslmode=require` which:
+
+- Encrypts the connection to protect data in transit
+- Does not verify the server certificate (acceptable for CI/CD)
+- Does not require downloading the Supabase CA certificate
+
+For local development with higher security requirements, you can use `sslmode=verify-full` by:
+
+1. Downloading the Supabase CA certificate from your Database Settings
+2. Setting the certificate path in your local environment
+
 ## References
 
 - [Supabase IPv4/IPv6 Compatibility Guide](https://supabase.com/docs/guides/troubleshooting/supabase--your-network-ipv4-and-ipv6-compatibility-cHe3BP)
 - [Supabase Database Connection Guide](https://supabase.com/docs/guides/database/connecting-to-postgres)
+- [Supabase SSL Enforcement](https://supabase.com/docs/guides/platform/ssl-enforcement)

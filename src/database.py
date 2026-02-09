@@ -95,7 +95,7 @@ class Database:
                 else:
                     logger.info(f"Using direct connection: {self.config.DB_HOST} (no IPv4 resolution)")
 
-            database_url = f"postgresql://{username}:{encoded_password}@{host}:{port}/{self.config.DB_NAME}?sslmode={self.config.DB_SSLMODE}&sslrootcert=system"
+            database_url = f"postgresql://{username}:{encoded_password}@{host}:{port}/{self.config.DB_NAME}"
 
             self.engine = create_engine(
                 database_url,
