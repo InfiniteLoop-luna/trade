@@ -42,6 +42,10 @@ def main():
         db.connect()
         logger.info("Database connected")
 
+        # Create tables if they don't exist
+        db.create_tables()
+        logger.info("Database tables initialized")
+
         # Initialize Tushare client
         client = TushareClient(config)
 
