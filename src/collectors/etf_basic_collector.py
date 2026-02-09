@@ -28,6 +28,9 @@ class ETFBasicCollector(BaseCollector):
                 if col in df.columns:
                     df[col] = pd.to_datetime(df[col], format='%Y%m%d', errors='coerce')
 
+            # Replace NaT with None for database compatibility
+            df = df.where(pd.notna(df), None)
+
             # Save to database
             with self.db.get_session() as session:
                 # Delete existing records

@@ -54,6 +54,9 @@ class ETFShareCollector(BaseCollector):
                     # Convert date column
                     df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
 
+                    # Replace NaT with None for database compatibility
+                    df = df.where(pd.notna(df), None)
+
                     # Save to database
                     with self.db.get_session() as session:
                         # Get valid column names from the model (excluding id and created_at)
