@@ -1,5 +1,6 @@
 import logging
-from sqlalchemy import create_engine
+import socket
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import NullPool
 from contextlib import contextmanager
@@ -16,20 +17,78 @@ class Database:
         self.engine = None
         self.SessionLocal = None
 
+    def _resolve_ipv4(self, hostname):
+        """Resolve hostname to IPv4 address to avoid IPv6 issues in GitHub Actions"""
+        try:
+            # Get all addresses for the hostname
+            addr_info = socket.getaddrinfo(hostname, None, socket.AF_INET, socket.SOCK_STREAM)
+            if addr_info:
+                # Return the first IPv4 address
+                ipv4_addr = addr_info[0][4][0]
+                logger.info(f"Resolved {hostname} to IPv4: {ipv4_addr}")
+                return ipv4_addr
+        except socket.gaierror as e:
+            logger.warning(f"Failed to resolve {hostname} to IPv4: {e}, using hostname as-is")
+        return hostname
+
     def connect(self):
         """Initialize database connection"""
         try:
-            # Connection arguments for Supabase with SSL
-            connect_args = {
-                "sslmode": self.config.DB_SSLMODE,
-                "connect_timeout": 10
-            }
+            # Build database URL with IPv4 resolution
+            from urllib.parse import quote_plus
+            encoded_password = quote_plus(self.config.DB_PASSWORD) if self.config.DB_PASSWORD else ''
+
+            # Use connection pooler for CI environments (better IPv4 support)
+            if self.config.USE_POOLER and self.config.DB_POOLER_HOST:
+                # Use provided pooler hostname with IPv4 resolution
+                pooler_host = self._resolve_ipv4(self.config.DB_POOLER_HOST)
+
+                # Extract project reference from DB_HOST for Supabase pooler username format
+                project_ref = None
+                if 'supabase.co' in self.config.DB_HOST:
+                    parts = self.config.DB_HOST.split('.')
+                    if len(parts) >= 3 and parts[0] == 'db':
+                        project_ref = parts[1]
+
+                # Format username as db-user.project-ref for Supabase pooler
+                username = f"{self.config.DB_USER}.{project_ref}" if project_ref else self.config.DB_USER
+                host = self.config.DB_POOLER_HOST  # Use hostname for SSL verification
+                port = 6543
+
+                # Use hostaddr for IPv4 connection while keeping hostname for SSL
+                connect_args = {
+                    "sslmode": self.config.DB_SSLMODE,
+                    "connect_timeout": 15,
+                    "hostaddr": pooler_host  # Force IPv4 connection
+                }
+                logger.info(f"Using Supabase connection pooler: {self.config.DB_POOLER_HOST} (IPv4: {pooler_host})")
+            else:
+                # Use direct connection with IPv4 resolution via hostaddr
+                ipv4_host = self._resolve_ipv4(self.config.DB_HOST)
+                username = self.config.DB_USER
+                host = self.config.DB_HOST  # Use hostname for SSL verification
+                port = self.config.DB_PORT
+
+                # Use hostaddr for IPv4 connection while keeping hostname for SSL
+                connect_args = {
+                    "sslmode": self.config.DB_SSLMODE,
+                    "connect_timeout": 30,
+                    "hostaddr": ipv4_host,  # Force IPv4 connection
+                    "keepalives": 1,
+                    "keepalives_idle": 30,
+                    "keepalives_interval": 10,
+                    "keepalives_count": 5
+                }
+                logger.info(f"Using direct connection: {self.config.DB_HOST} (IPv4: {ipv4_host})")
+
+            database_url = f"postgresql://{username}:{encoded_password}@{host}:{port}/{self.config.DB_NAME}?sslmode={self.config.DB_SSLMODE}&sslrootcert=system"
 
             self.engine = create_engine(
-                self.config.database_url,
+                database_url,
                 poolclass=NullPool,
                 echo=False,
-                connect_args=connect_args
+                connect_args=connect_args,
+                pool_pre_ping=True
             )
             self.SessionLocal = sessionmaker(
                 autocommit=False,

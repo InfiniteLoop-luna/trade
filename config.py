@@ -12,6 +12,8 @@ class Config:
 
     # Database Configuration
     DB_HOST = os.getenv('DB_HOST')
+    # Optional: Supabase connection pooler host (e.g., aws-0-us-east-1.pooler.supabase.com)
+    DB_POOLER_HOST = os.getenv('DB_POOLER_HOST')
     try:
         DB_PORT = int(os.getenv('DB_PORT', 5432))
     except (ValueError, TypeError):
@@ -20,6 +22,9 @@ class Config:
     DB_USER = os.getenv('DB_USER', 'postgres')
     DB_PASSWORD = os.getenv('DB_PASSWORD')
     DB_SSLMODE = os.getenv('DB_SSLMODE', 'verify-full')
+    # Use connection pooler for better IPv4 support in CI environments
+    # Set to 'true' to use Supabase connection pooler (port 6543)
+    USE_POOLER = os.getenv('USE_POOLER', 'false').lower() == 'true'
 
     # Logging Configuration
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
@@ -34,8 +39,30 @@ class Config:
     def database_url(self):
         """Generate SQLAlchemy database URL"""
         encoded_password = quote_plus(self.DB_PASSWORD) if self.DB_PASSWORD else ''
-        # Use verify-full for Supabase SSL without explicit root cert
-        return f"postgresql://{self.DB_USER}:{encoded_password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}"
+
+        # Use connection pooler for CI environments (better IPv4 support)
+        if self.USE_POOLER and self.DB_POOLER_HOST:
+            # Use provided pooler hostname
+            # Supabase pooler format: postgres://[db-user].[project-ref]:[password]@[pooler-host]:6543/postgres
+            # Extract project reference from DB_HOST (e.g., db.xxx.supabase.co -> xxx)
+            project_ref = None
+            if 'supabase.co' in self.DB_HOST:
+                parts = self.DB_HOST.split('.')
+                if len(parts) >= 3 and parts[0] == 'db':
+                    project_ref = parts[1]
+
+            # Format username as db-user.project-ref for Supabase pooler
+            username = f"{self.DB_USER}.{project_ref}" if project_ref else self.DB_USER
+            host = self.DB_POOLER_HOST
+            port = 6543
+        else:
+            # Use direct connection
+            username = self.DB_USER
+            host = self.DB_HOST
+            port = self.DB_PORT
+
+        # Add sslmode and connection parameters for reliability
+        return f"postgresql://{username}:{encoded_password}@{host}:{port}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}&sslrootcert=system"
 
     def validate(self):
         """Validate required configuration"""
