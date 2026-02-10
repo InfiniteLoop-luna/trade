@@ -26,10 +26,9 @@ def render_fund_card(fund_data: Dict[str, Any], clickable: bool = True) -> None:
         if fund_data.get('fund_type'):
             st.caption(f"基金类型: {fund_data['fund_type']}")
 
-        # Issue amount as caption (formatted as "X.XX亿")
+        # Issue amount as caption (already in 亿 units)
         if fund_data.get('issue_amount') is not None:
-            issue_amount_yi = fund_data['issue_amount'] / 100000000
-            st.caption(f"发行规模: {issue_amount_yi:.2f}亿")
+            st.caption(f"发行规模: {fund_data['issue_amount']:.2f}亿")
 
         # Add detail button if clickable
         if clickable and fund_data.get('ts_code'):
