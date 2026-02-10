@@ -85,8 +85,7 @@ try:
     with col3:
         issue_amount = fund.get('issue_amount')
         if issue_amount is not None:
-            issue_amount_yi = issue_amount / 100000000
-            st.metric("发行份额", f"{issue_amount_yi:.2f}亿")
+            st.metric("发行份额", f"{issue_amount:.2f}亿")
         else:
             st.metric("发行份额", "N/A")
 
@@ -137,7 +136,7 @@ try:
                 # Format the dataframe for display
                 display_df = df.copy()
                 display_df['trade_date'] = pd.to_datetime(display_df['trade_date']).dt.strftime('%Y-%m-%d')
-                display_df['fund_share'] = display_df['fund_share'].apply(lambda x: f"{x:,.2f}")
+                display_df['fund_share'] = display_df['fund_share'].apply(lambda x: f"{x:,.2f}" if x is not None else "N/A")
                 display_df.columns = ['交易日期', '份额（份）']
                 st.dataframe(display_df, use_container_width=True, hide_index=True)
         else:
