@@ -62,7 +62,11 @@ class Config:
             port = self.DB_PORT
 
         # Add sslmode and connection parameters for reliability
-        return f"postgresql://{username}:{encoded_password}@{host}:{port}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}&sslrootcert=system"
+        # Only add sslrootcert=system for verify-full mode
+        if self.DB_SSLMODE == 'verify-full':
+            return f"postgresql://{username}:{encoded_password}@{host}:{port}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}&sslrootcert=system"
+        else:
+            return f"postgresql://{username}:{encoded_password}@{host}:{port}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}"
 
     def validate(self):
         """Validate required configuration"""
