@@ -52,11 +52,13 @@ def get_fund_count() -> int:
     """Get total fund count (cached for 5 minutes)
 
     Returns:
-        Total number of funds in database
+        Total number of active (non-delisted) funds in database
     """
     db = get_database()
     with db.get_session() as session:
-        return session.query(func.count(ETFBasic.ts_code)).scalar()
+        return session.query(func.count(ETFBasic.ts_code)).filter(
+            ETFBasic.delist_date.is_(None)
+        ).scalar()
 
 
 @st.cache_data(ttl=300)
@@ -91,6 +93,9 @@ def load_fund_list(
     db = get_database()
     with db.get_session() as session:
         query = session.query(ETFBasic)
+
+        # Filter out delisted funds
+        query = query.filter(ETFBasic.delist_date.is_(None))
 
         # Apply filters if provided
         if filters:
