@@ -35,7 +35,7 @@ def render_fund_card(fund_data: Dict[str, Any], clickable: bool = True) -> None:
         if clickable and fund_data.get('ts_code'):
             if st.button("查看详情", key=fund_data['ts_code']):
                 st.session_state['selected_fund'] = fund_data['ts_code']
-                st.switch_page("pages/2_📈_基金详情.py")
+                st.switch_page("pages/2_fund_detail.py")
 
         # Add divider at the end
         st.divider()
